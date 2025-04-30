@@ -7,15 +7,8 @@ from PyQt6.QtGui import QColor, QPalette, QFont, QIcon, QTextCharFormat, QBrush,
 from datetime import datetime, date
 import sys
 
-import firebase_admin
-from firebase_admin import credentials
+from firebase_config import *
 from firebase_admin import db
-
-
-cred = credentials.Certificate("DB/credenciales.json")
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://sistema-hidroponico-cac0b-default-rtdb.firebaseio.com/'
-})
 
 
 class TablaTemperatura(QWidget):

@@ -7,9 +7,27 @@ from PyQt6.QtGui import QFont, QCursor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import sys
-from firebase_config import db, get_latest_value
+from firebase_config import *
+from firebase_admin import db
+    
 
-
+def get_latest_value(key):
+    try:
+        ref = db.reference("Sensores/" + key)
+        data = ref.get()
+        if isinstance(data, dict):
+            sorted_items = sorted(
+                ((int(k), v) for k, v in data.items() if str(k).isdigit()),
+                key=lambda x: x[0]
+            )
+            return sorted_items[-1][1] if sorted_items else None
+        elif isinstance(data, list):
+            return data[-1] if data else None
+        return None
+    except Exception as e:
+        print(f"Error al obtener {key}:", e)
+        return None
+    
 def evaluar_estado(tipo, valor):
     try:
         valor = float(valor)
@@ -73,7 +91,7 @@ class TempChart(FigureCanvas):
 
     def get_data_from_firebase(self, key):
         try:
-            ref = db.child("datos/" + key)
+            ref = db.reference("sensores/" + key)
             data = ref.get()
             if isinstance(data, dict):
                 sorted_items = sorted(data.items(), key=lambda x: int(x[0]))
@@ -85,16 +103,17 @@ class TempChart(FigureCanvas):
             print("Error al obtener datos de Firebase:", e)
             return [0] * 24
 
+
     def plot(self, title):
         self.axes.clear()
         self.axes.set_facecolor("#1e1e1e")
         self.axes.set_title(title, color='white', pad=20)
 
         key_map = {
-            "Temperatura": "temperatura",
-            "Nivel de pH": "ph",
-            "Nivel de CE": "ce",
-            "Nivel de agua": "nivel_agua"
+            "Temperatura": "Sensor-Temperatuta",
+            "Nivel de pH": "Sensor-PH",
+            "Nivel de CE": "Sensor-CE",
+            "Nivel de agua": "Sensor-NA"
         }
 
         key = key_map.get(title, "temperatura")
@@ -295,10 +314,10 @@ class HomeView(QWidget):
 
     def actualizar_datos(self):
         cards_data = {
-            "Temperatura": (get_latest_value("temperatura"), " °C", "Temperatura ideal: entre 18°C y 26°C para un crecimiento óptimo."),
-            "Nivel de pH": (get_latest_value("ph"), "", "El pH óptimo para cultivos hidropónicos está entre 5.5 y 6.5."),
-            "Nivel de CE": (get_latest_value("ce"), " mS/cm", "CE ideal: 1.2 - 2.4 mS/cm para nutrientes en solución."),
-            "Nivel de agua": (get_latest_value("nivel_agua"), "%", "El nivel de agua debe mantenerse por encima del 60% para evitar daños en raíces.")
+            "Temperatura": (get_latest_value("Sensor-Temperatura"), " °C", "Temperatura ideal: entre 18°C y 26°C para un crecimiento óptimo."),
+            "Nivel de pH": (get_latest_value("Sensor-PH"), "", "El pH óptimo para cultivos hidropónicos está entre 5.5 y 6.5."),
+            "Nivel de CE": (get_latest_value("Sensor-CE"), " mS/cm", "CE ideal: 1.2 - 2.4 mS/cm para nutrientes en solución."),
+            "Nivel de agua": (get_latest_value("Sensor-NA"), "%", "El nivel de agua debe mantenerse por encima del 60% para evitar daños en raíces.")
         }
 
         for i in reversed(range(self.card_layout.count())):

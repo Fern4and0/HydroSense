@@ -125,6 +125,33 @@ class TablaTemperatura(QWidget):
                 border-bottom-left-radius: 10px;
                 border-bottom-right-radius: 10px;
             }
+            QTableWidget QScrollBar:vertical {
+                background: #5a5a5a;
+                margin-top: 15px;
+                margin-bottom: 15px;
+                width: 14px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            QTableWidget QScrollBar::handle:vertical {
+                background: #8C8C8C;
+                margin: 3.5px;
+                min-height: 5px;
+                border-radius: 10px;
+            }
+            QTableWidget QScrollBar::handle:vertical:hover {
+                background: #b2b2b2;
+            }
+            QTableWidget QScrollBar::add-line:vertical,
+            QTableWidget QScrollBar::sub-line:vertical {
+                height: 0px;            /* Oculta las flechas */
+                background: none;
+                border-radius: 5px;
+            }
+            QTableWidget QScrollBar::add-page:vertical,
+            QTableWidget QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
         """)
         self.header_widget.setObjectName("header_widget")
 
@@ -184,7 +211,7 @@ class TablaTemperatura(QWidget):
         # Si hay datos, proceder normalmente
         Simbolos_sensor = {
             "Temperatura": "°C",
-            "Conductividad Electrica": "µS/cm",
+            "Conductividad Electrica": "mS/cm",
             "Nivel de pH": "pH",
             "Nivel del agua": "%",
             "pH-": "mL",
@@ -194,21 +221,25 @@ class TablaTemperatura(QWidget):
 
         Margenes_sensor = {
             "Temperatura": [
-                (15, "#e3342f", "Malo"),
-                (25, "#4dc0b5", "Bueno"),
-                (30, "#ffed4a", "Aceptable"),
+                (9, "#e3342f", "Malo"),
+                (14, "#ffed4a", "Regular"),
+                (18, "#4dc0b5", "Bueno"),
+                (22, "#ffed4a", "Regular"),
                 (float('inf'), "#e3342f", "Malo")
             ],
             "Conductividad Electrica": [
-                (500, "#e3342f", "Bajo"),
-                (1500, "#4dc0b5", "Óptimo"),
-                (float('inf'), "#ffed4a", "Alto")
+                (0.9, "#e3342f", "Malo"),
+                (1.1, "#ffed4a", "Regular"),
+                (1.8, "#4dc0b5", "Bueno"),
+                (1.9, "#ffed4a", "Regular"),
+                (float('inf'), "#e3342f", "Malo")
             ],
             "Nivel de pH": [
-                (5.5, "#e3342f", "Ácido"),
-                (6.5, "#4dc0b5", "Óptimo"),
-                (7.5, "#ffed4a", "Alcalino"),
-                (float('inf'), "#e3342f", "Muy Alcalino")
+                (5.5, "#e3342f", "Malo"),
+                (6.0, "#ffed4a", "Regular"),
+                (7.0, "#4dc0b5", "Bueno"),
+                (7.5, "#ffed4a", "Regular"),
+                (float('inf'), "#e3342f", "Malo")
             ],
             "Nivel del agua": [
                 (30, "#e3342f", "Bajo"),
@@ -496,18 +527,23 @@ class HistoryView(QWidget):
         table_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.mi_tabla_temperatura = TablaTemperatura()
+        self.mi_tabla_temperatura.setMinimumSize(840, 700)
+        self.mi_tabla_temperatura.setMaximumSize(900, 700) 
+        self.mi_tabla_temperatura.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
         table_layout.addWidget(self.mi_tabla_temperatura)
 
         # Layout para el calendario
         calendar_layout = QVBoxLayout()
-        calendar_layout.setContentsMargins(0, 0, 0, 0)
+        calendar_layout.setContentsMargins(0, 0, 10, 0)
         calendar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.calendario_widget = CalendarioPersonalizado(self.mi_tabla_temperatura)
-        self.calendario_widget.setFixedSize(300, 300)  # igual que el placeholder
+        self.calendario_widget.setMinimumSize(300, 300)  # igual que el placeholder
+        self.calendario_widget.setMaximumSize(500, 500)  # igual que el placeholder
+        self.calendario_widget.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
 
         calendar_layout.addWidget(self.calendario_widget)
-
+        
         # Ahora agrega los layouts en vez de los widgets directos
         content_layout.addLayout(table_layout)
         content_layout.addLayout(calendar_layout)

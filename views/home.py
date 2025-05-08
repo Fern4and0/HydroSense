@@ -11,22 +11,22 @@ from firebase_config import *
 from firebase_admin import db
     
 
-def get_latest_value(key):
-    try:
-        ref = db.reference("Sensores/" + key)
-        data = ref.get()
-        if isinstance(data, dict):
-            sorted_items = sorted(
-                ((int(k), v) for k, v in data.items() if str(k).isdigit()),
-                key=lambda x: x[0]
-            )
-            return sorted_items[-1][1] if sorted_items else None
-        elif isinstance(data, list):
-            return data[-1] if data else None
-        return None
-    except Exception as e:
-        print(f"Error al obtener {key}:", e)
-        return None
+def get_latest_value(sensor_key):
+    ref = db.reference("Sensores/" + sensor_key)
+    data = ref.get()
+    if data:
+        # Ordenamos por fecha
+        sorted_data = sorted(data.items(), key=lambda item: item[1].get("Fecha", ""), reverse=True)
+        # Ignoramos los que tengan valor igual a 1
+        for _, entry in sorted_data:
+            valor = entry.get("Valor")
+            try:
+                if float(valor) != 1.0:
+                    return valor
+            except:
+                continue
+    return None
+
     
 def evaluar_estado(tipo, valor):
     try:
@@ -88,21 +88,23 @@ class TempChart(FigureCanvas):
         self.setParent(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.plot("Temperatura")
-
+        
     def get_data_from_firebase(self, key):
         try:
-            ref = db.reference("sensores/" + key)
+            ref = db.reference("Sensores/" + key)
             data = ref.get()
-            if isinstance(data, dict):
-                sorted_items = sorted(data.items(), key=lambda x: int(x[0]))
-                return [v for _, v in sorted_items]
-            elif isinstance(data, list):
-                return data
-            return [0] * 24
+            if data:
+                # Convertimos todos los datos a listas ordenadas por fecha
+                sorted_data = sorted(data.items(), key=lambda item: item[1].get("Fecha", ""))
+                values = [float(entry[1]["Valor"]) for entry in sorted_data if "Valor" in entry[1]]
+                
+                # Eliminar últimos hasta 3 valores si son iguales a 1
+                while values and values[-1] == 1.0:
+                    values.pop()
+                return values
         except Exception as e:
             print("Error al obtener datos de Firebase:", e)
-            return [0] * 24
-
+        return []
 
     def plot(self, title):
         self.axes.clear()
@@ -110,7 +112,7 @@ class TempChart(FigureCanvas):
         self.axes.set_title(title, color='white', pad=20)
 
         key_map = {
-            "Temperatura": "Sensor-Temperatuta",
+            "Temperatura": "Sensor-Temperatura",
             "Nivel de pH": "Sensor-PH",
             "Nivel de CE": "Sensor-CE",
             "Nivel de agua": "Sensor-NA"

@@ -9,15 +9,16 @@ from matplotlib.figure import Figure
 import sys
 from firebase_config import *
 from firebase_admin import db
+from rangosPlantas import rangos_ideales
+
     
 
+# ⚙️ Planta actual para evaluar
 def get_latest_value(sensor_key):
     ref = db.reference("Sensores/" + sensor_key)
     data = ref.get()
     if data:
-        # Ordenamos por fecha
         sorted_data = sorted(data.items(), key=lambda item: item[1].get("Fecha", ""), reverse=True)
-        # Ignoramos los que tengan valor igual a 1
         for _, entry in sorted_data:
             valor = entry.get("Valor")
             try:
@@ -27,32 +28,44 @@ def get_latest_value(sensor_key):
                 continue
     return None
 
-    
+# ⚙️ Planta actual para evaluar
+PLANTA_ACTUAL = "Cilantro"
+
+def obtener_rangos_local(planta, parametro):
+    try:
+        return rangos_ideales["Plantas"][planta][parametro]
+    except KeyError:
+        return {}
+
+def evaluar_estado_local(valor, rangos):
+    try:
+        valor = float(valor)
+        bueno = rangos.get("bueno", {})
+        regular = rangos.get("regular", [])
+        regular_1 = rangos.get("regular_1", {})
+        regular_2 = rangos.get("regular_2", {})
+        malo = rangos.get("malo", {})
+
+        if bueno.get("min") <= valor <= bueno.get("max"):
+            return 0  # verde
+        if any([
+            isinstance(regular, list) and valor in [float(v) for v in regular],
+            regular_1.get("min", -999) <= valor <= regular_1.get("max", -999),
+            regular_2.get("min", -999) <= valor <= regular_2.get("max", -999),
+        ]):
+            return 1  # amarillo
+        if valor <= malo.get("max", -999) or valor >= malo.get("extra_max", 999):
+            return 2  # rojo
+
+    except Exception as e:
+        print(f"Error al evaluar estado: {e}")
+    return 1
+
+
 def evaluar_estado(tipo, valor):
     try:
         valor = float(valor)
-        if tipo == "temperatura":
-            if valor < 18:
-                return 2
-            elif valor <= 26:
-                return 0
-            else:
-                return 1
-        elif tipo == "ph":
-            if 5.5 <= valor <= 6.5:
-                return 0
-            elif 4.5 <= valor < 5.5 or 6.5 < valor <= 7.5:
-                return 1
-            else:
-                return 2
-        elif tipo == "ce":
-            if 1.2 <= valor <= 2.4:
-                return 0
-            elif 1.0 <= valor < 1.2 or 2.4 < valor <= 2.8:
-                return 1
-            else:
-                return 2
-        elif tipo == "agua":
+        if tipo == "agua":
             if valor > 60:
                 return 0
             elif 40 <= valor <= 60:
@@ -61,7 +74,6 @@ def evaluar_estado(tipo, valor):
                 return 2
     except:
         return 1
-
 
 class CustomToolTip(QLabel):
     def __init__(self, text, parent=None):
@@ -202,44 +214,53 @@ def create_card(title, value, tooltip_text=""):
 
 
 def create_status_card(title, active_index):
+    # Estado: 0 = bueno, 1 = regular, 2 = malo
     colors = ["#55E8BE", "#FFD93D", "#F05A5A"]
+    emojis = ["😀", "😐", "😟"]
+    textos = ["Bueno", "Regular", "Malo"]
+
     card = QFrame()
     card.setStyleSheet("background-color: #2B2B2B; border-radius: 14px;")
     card.setMinimumSize(160, 120)
     card.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
 
     layout = QVBoxLayout()
-    layout.setContentsMargins(6, 6, 6, 6)
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(10)
 
+    # Título arriba
     label = QLabel(title)
     label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-    label.setStyleSheet("font-size: 15px; font-weight: bold; color: white; padding-bottom: 5px;")
+    label.setStyleSheet("font-size: 15px; font-weight: bold; color: white;")
     layout.addWidget(label)
 
-    dot_row = QHBoxLayout()
-    dot_row.setSpacing(12)
+    # Fila horizontal: cara + texto
+    face_row = QHBoxLayout()
+    face_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    for i in range(3):
-        vbox = QVBoxLayout()
-        arrow = QLabel("▼" if i == active_index else "")
-        arrow.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        arrow.setStyleSheet(f"color: {colors[active_index]}; font-size: 18px;")
+    emoji_label = QLabel(emojis[active_index])
+    emoji_label.setStyleSheet(f"""
+        font-size: 42px;
+        color: {colors[active_index]};
+    """)
+    emoji_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        dot = QLabel("●")
-        dot.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        dot.setStyleSheet(f"""
-            font-size: 40px;
-            color: {colors[i] if i == active_index else '#777777'};
-        """)
+    texto_label = QLabel(textos[active_index])
+    texto_label.setStyleSheet(f"""
+        font-size: 18px;
+        color: {colors[active_index]};
+        font-weight: bold;
+        padding-left: 10px;
+    """)
+    texto_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        vbox.addWidget(arrow)
-        vbox.addWidget(dot)
-        dot_row.addLayout(vbox)
+    face_row.addWidget(emoji_label)
+    face_row.addWidget(texto_label)
 
-    layout.addLayout(dot_row)
+    layout.addLayout(face_row)
     card.setLayout(layout)
-    return card
 
+    return card
 
 class HomeView(QWidget):
     def __init__(self):
@@ -329,10 +350,23 @@ class HomeView(QWidget):
             card = create_card(nombre, f"{valor}{sufijo}", tooltip)
             self.card_layout.addWidget(card)
 
-        estado_temp = evaluar_estado("temperatura", cards_data["Temperatura"][0])
-        estado_ph = evaluar_estado("ph", cards_data["Nivel de pH"][0])
-        estado_ce = evaluar_estado("ce", cards_data["Nivel de CE"][0])
-        estado_agua = evaluar_estado("agua", cards_data["Nivel de agua"][0])
+        estado_temp = evaluar_estado_local(
+            cards_data["Temperatura"][0],
+            obtener_rangos_local(PLANTA_ACTUAL, "temp")
+        )
+
+        estado_ph = evaluar_estado_local(
+            cards_data["Nivel de pH"][0],
+            obtener_rangos_local(PLANTA_ACTUAL, "pH")
+        )
+
+        estado_ce = evaluar_estado_local(
+            cards_data["Nivel de CE"][0],
+            obtener_rangos_local(PLANTA_ACTUAL, "CE")
+        )
+
+        estado_agua = evaluar_estado("agua", cards_data["Nivel de agua"][0])  # Sigue con la función antigua si no está en rangos
+
 
         for i in reversed(range(self.status_layout.count())):
             self.status_layout.itemAt(i).widget().deleteLater()

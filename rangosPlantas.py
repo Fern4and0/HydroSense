@@ -1,4 +1,4 @@
-{
+Rangos_ideales = {
   "Plantas": {
     "Lechuga_orejona": {
       "temp": {

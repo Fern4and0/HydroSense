@@ -7,8 +7,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFontDatabase, QFont, QPixmap
 from PyQt6.QtCore import Qt
 
+from views.cultivoView import CultivoView
 from views.home import HomeView
-from views.history import HistoryView
+from views.historyView.history import HistoryView
+from login import VentanaLogin
 
 
 class MainWindow(QMainWindow):
@@ -16,7 +18,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("App")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1280, 720)
 
         # Cargar fuente de Font Awesome
         self.icon_font_family = self.load_fontawesome()
@@ -61,7 +63,8 @@ class MainWindow(QMainWindow):
         sidebar.setFixedWidth(100)
         sidebar.setStyleSheet("""
             QFrame {
-                background-color: #333333;
+                background-color: #222222;
+                border: 2px solid #333333;
                 border-radius: 10px;
                 margin: 15px;
             }
@@ -84,10 +87,12 @@ class MainWindow(QMainWindow):
         self.home_btn.setChecked(True)
 
         self.history_btn = self.create_icon_button("\uf1da", "Historial")
+        self.cultivo_btn = self.create_icon_button("\ue5aa","Cultivo")
         self.noty_btn = self.create_icon_button("\uf0f3", "Notificaciones")
 
         sidebar_layout.addWidget(self.home_btn)
         sidebar_layout.addWidget(self.history_btn)
+        sidebar_layout.addWidget(self.cultivo_btn)
         sidebar_layout.addStretch()
         sidebar_layout.addWidget(self.noty_btn)
 
@@ -119,26 +124,40 @@ class MainWindow(QMainWindow):
 
     def setup_pages(self):
         """Agrega las vistas externas"""
+        self.cultivo_page = CultivoView()
         self.home_page = HomeView()
         self.history_page = HistoryView()
 
         self.content_stack.addWidget(self.home_page)
         self.content_stack.addWidget(self.history_page)
+        self.content_stack.addWidget(self.cultivo_page)
 
     def setup_connections(self):
         self.home_btn.clicked.connect(lambda: self.switch_page(0))
         self.history_btn.clicked.connect(lambda: self.switch_page(1))
+        self.cultivo_btn.clicked.connect(lambda: self.switch_page(2))
         self.noty_btn.clicked.connect(lambda: print("Notificaciones"))
 
     def switch_page(self, index):
         self.content_stack.setCurrentIndex(index)
         self.home_btn.setChecked(index == 0)
         self.history_btn.setChecked(index == 1)
+        self.cultivo_btn.setChecked(index == 2)
         self.noty_btn.setChecked(False)
+
+        if index == 1:
+            self.history_page.calendario_widget.actualizar_tabla_con_fecha_seleccionada()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
+
+    main_window = MainWindow()
+
+    def abrir_main():
+        main_window.show()
+
+    login_window = VentanaLogin(on_login_success=abrir_main)
+    login_window.show()
+
     sys.exit(app.exec())

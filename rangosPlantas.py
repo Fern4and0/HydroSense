@@ -1,6 +1,6 @@
 Rangos_ideales = {
   "Plantas": {
-    "Lechuga_orejona": {
+    "Lechuga Orejona": {
       "temp": {
         "bueno": { "min": 18, "max": 22 },
         "regular_1": { "min": 15, "max": 17 },

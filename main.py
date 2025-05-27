@@ -13,6 +13,8 @@ from views.home import HomeView
 from views.historyView.history import HistoryView
 from login import VentanaLogin
 
+from PasswordDialog import PasswordDialog
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -151,7 +153,7 @@ class MainWindow(QMainWindow):
         self.home_btn.clicked.connect(lambda: self.switch_page(0))
         self.history_btn.clicked.connect(lambda: self.switch_page(1))
         self.cultivo_btn.clicked.connect(lambda: self.switch_page(2))
-        self.control_btn.clicked.connect(lambda: self.switch_page(3))
+        self.control_btn.clicked.connect(self.confirmar_control_view)
         self.noty_btn.clicked.connect(lambda: print("Notificaciones"))
 
     def switch_page(self, index):
@@ -164,6 +166,15 @@ class MainWindow(QMainWindow):
 
         if index == 1:
             self.history_page.calendario_widget.actualizar_tabla_con_fecha_seleccionada()
+
+    def confirmar_control_view(self):
+        dialog = PasswordDialog(self)
+        if dialog.exec() == dialog.DialogCode.Accepted and dialog.password_correct:
+            self.switch_page(3)
+        else:
+            # Contraseña incorrecta o cancelado: no cambiamos la vista
+            return
+
 
 
 if __name__ == "__main__":

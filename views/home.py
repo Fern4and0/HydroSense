@@ -9,7 +9,10 @@ from matplotlib.figure import Figure
 import sys
 from firebase_config import *
 from firebase_admin import db
-from rangosPlantas import rangos_ideales
+from rangosPlantas import Rangos_ideales
+from configCultivo import obtener_cultivo_seleccionado
+from datetime import date
+
 
     
 
@@ -29,11 +32,13 @@ def get_latest_value(sensor_key):
     return None
 
 # ⚙️ Planta actual para evaluar
-PLANTA_ACTUAL = "Cilantro"
+_, PLANTA_ACTUAL, _ = obtener_cultivo_seleccionado()
+if not PLANTA_ACTUAL:
+    PLANTA_ACTUAL = "Cilantro"
 
 def obtener_rangos_local(planta, parametro):
     try:
-        return rangos_ideales["Plantas"][planta][parametro]
+        return Rangos_ideales["Plantas"][planta][parametro]
     except KeyError:
         return {}
 
@@ -46,15 +51,22 @@ def evaluar_estado_local(valor, rangos):
         regular_2 = rangos.get("regular_2", {})
         malo = rangos.get("malo", {})
 
-        if bueno.get("min") <= valor <= bueno.get("max"):
-            return 0  # verde
+        # Verificar si bueno tiene min y max válidos
+        if bueno.get("min") is not None and bueno.get("max") is not None:
+            if bueno["min"] <= valor <= bueno["max"]:
+                return 0  # verde
+
         if any([
             isinstance(regular, list) and valor in [float(v) for v in regular],
-            regular_1.get("min", -999) <= valor <= regular_1.get("max", -999),
-            regular_2.get("min", -999) <= valor <= regular_2.get("max", -999),
+            regular_1.get("min") is not None and regular_1.get("max") is not None and regular_1["min"] <= valor <= regular_1["max"],
+            regular_2.get("min") is not None and regular_2.get("max") is not None and regular_2["min"] <= valor <= regular_2["max"],
         ]):
             return 1  # amarillo
-        if valor <= malo.get("max", -999) or valor >= malo.get("extra_max", 999):
+
+        if any([
+            malo.get("max") is not None and valor <= malo["max"],
+            malo.get("extra_max") is not None and valor >= malo["extra_max"]
+        ]):
             return 2  # rojo
 
     except Exception as e:
@@ -270,6 +282,20 @@ class HomeView(QWidget):
         self.resize(1920, 1080)
 
         content_layout = QVBoxLayout(self)
+        
+        self.info_cultivo_layout = QHBoxLayout()
+        self.label_cultivo = QLabel()
+        self.label_cultivo.setStyleSheet("color: #55E8BE; font-size: 22px; font-weight: bold;")
+
+        self.label_dias = QLabel()
+        self.label_dias.setStyleSheet("color: white; font-size: 20px;")
+
+        self.info_cultivo_layout.addWidget(self.label_cultivo)
+        self.info_cultivo_layout.addWidget(self.label_dias)
+        self.info_cultivo_layout.addStretch()
+
+        content_layout.addLayout(self.info_cultivo_layout)
+
         content_layout.setSpacing(30)
         content_layout.setContentsMargins(30, 30, 30, 30)
 
@@ -336,13 +362,45 @@ class HomeView(QWidget):
         self.timer.start(10000)
 
     def actualizar_datos(self):
-        cards_data = {
-            "Temperatura": (get_latest_value("Sensor-Temperatura"), " °C", "Temperatura ideal: entre 18°C y 26°C para un crecimiento óptimo."),
-            "Nivel de pH": (get_latest_value("Sensor-PH"), "", "El pH óptimo para cultivos hidropónicos está entre 5.5 y 6.5."),
-            "Nivel de CE": (get_latest_value("Sensor-CE"), " mS/cm", "CE ideal: 1.2 - 2.4 mS/cm para nutrientes en solución."),
-            "Nivel de agua": (get_latest_value("Sensor-NA"), "%", "El nivel de agua debe mantenerse por encima del 60% para evitar daños en raíces.")
-        }
+        
+        def format_valor(nombre, valor):
+            try:
+                valor = float(valor)
+                if nombre == "Temperatura":
+                    return f"{int(round(valor))}"
+                elif nombre == "Nivel de pH":
+                    return f"{valor:.1f}"
+                elif nombre == "Nivel de CE":
+                    return f"{valor:.1f}"
+                elif nombre == "Nivel de agua":
+                    return f"{int(valor)}"
+                else:
+                    return str(valor)
+            except:
+                return str(valor)
 
+        cards_data = {
+            "Temperatura": (
+                format_valor("Temperatura", get_latest_value("Sensor-Temperatura")),
+                " °C",
+                "La temperatura es un factor clave que afecta el crecimiento y desarrollo de las plantas. En hidroponía, mantener una temperatura adecuada ayuda a una mejor absorción de nutrientes."
+            ),
+            "Nivel de pH": (
+                format_valor("Nivel de pH", get_latest_value("Sensor-PH")),
+                "",
+                "El pH indica la acidez o alcalinidad de la solución nutritiva. Un pH equilibrado permite que las raíces absorban los nutrientes correctamente."
+            ),
+            "Nivel de CE": (
+                format_valor("Nivel de CE", get_latest_value("Sensor-CE")),
+                " dS/m",
+                "La Conductividad Eléctrica (CE) mide la concentración de nutrientes disueltos en el agua. Es esencial para saber si las plantas están recibiendo la cantidad correcta de nutrientes."
+            ),
+            "Nivel de agua": (
+                format_valor("Nivel de agua", get_latest_value("Sensor-NA")),
+                "%",
+                "Este valor indica cuánta agua queda disponible en el sistema. Un nivel bajo puede afectar el acceso a nutrientes y oxígeno de las raíces."
+            )
+        }
         for i in reversed(range(self.card_layout.count())):
             self.card_layout.itemAt(i).widget().deleteLater()
 
@@ -350,22 +408,35 @@ class HomeView(QWidget):
             card = create_card(nombre, f"{valor}{sufijo}", tooltip)
             self.card_layout.addWidget(card)
 
+        nombre_visible, clave_interna, fecha_inicio = obtener_cultivo_seleccionado()
+
+        if not clave_interna:
+            print("⚠️ No se ha seleccionado ningún cultivo.")
+            return
+
+        # Mostrar el nombre visible y los días
+        self.label_cultivo.setText(f" Cultivo actual: {nombre_visible}")
+        if fecha_inicio:
+            dias = (date.today() - date.fromisoformat(fecha_inicio)).days
+            self.label_dias.setText(f" Días desde selección: {dias}")
+        else:
+            self.label_dias.setText("")
+
+        # Usar la clave interna para evaluar correctamente con Rangos_ideales
         estado_temp = evaluar_estado_local(
             cards_data["Temperatura"][0],
-            obtener_rangos_local(PLANTA_ACTUAL, "temp")
+            obtener_rangos_local(clave_interna, "temp")
         )
-
         estado_ph = evaluar_estado_local(
             cards_data["Nivel de pH"][0],
-            obtener_rangos_local(PLANTA_ACTUAL, "pH")
+            obtener_rangos_local(clave_interna, "pH")
         )
-
         estado_ce = evaluar_estado_local(
             cards_data["Nivel de CE"][0],
-            obtener_rangos_local(PLANTA_ACTUAL, "CE")
+            obtener_rangos_local(clave_interna, "CE")
         )
+        estado_agua = evaluar_estado("agua", cards_data["Nivel de agua"][0])
 
-        estado_agua = evaluar_estado("agua", cards_data["Nivel de agua"][0])  # Sigue con la función antigua si no está en rangos
 
 
         for i in reversed(range(self.status_layout.count())):

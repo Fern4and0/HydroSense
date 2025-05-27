@@ -226,9 +226,22 @@ class CultivoView(QWidget):
     def usar_cultivo(self):
         boton_seleccionado = self.boton_group.checkedButton()
         if boton_seleccionado:
-            nombre_cultivo = boton_seleccionado.text()
-            guardar_cultivo_seleccionado(nombre_cultivo)
-            self.mostrar_alerta(f"Cultivo seleccionado: {nombre_cultivo}")
+            nombre_visible = boton_seleccionado.text()
+
+            # Mapea a clave interna
+            clave_map = {
+                "Lechuga Orejona": "Lechuga_orejona",
+                "Espinaca": "Espinaca",
+                "Cilantro": "Cilantro",
+                "Albahaca": "Albahaca"
+            }
+            clave_interna = clave_map.get(nombre_visible)
+            if not clave_interna:
+                self.mostrar_alerta("No se pudo identificar la clave del cultivo.")
+                return
+
+            guardar_cultivo_seleccionado(nombre_visible, clave_interna)
+            self.mostrar_alerta(f"Cultivo seleccionado: {nombre_visible}")
         else:
             self.mostrar_alerta("Selecciona un cultivo antes de continuar.")
 

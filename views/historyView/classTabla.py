@@ -9,8 +9,6 @@ from datetime import datetime, date
 from firebase_config import *
 from firebase_admin import db
 
-from cultivoActual import cargar_cultivo_seleccionado
-
 class TablaTemperatura(QWidget):
     def __init__(self):
         super().__init__()
@@ -194,6 +192,9 @@ class TablaTemperatura(QWidget):
 
 
     def actualizar_tabla_con_datos(self, datos):
+        from rangosPlantas import Rangos_ideales
+        from configCultivo import obtener_cultivo_seleccionado
+        
         self.tabla.clearSpans()
 
         if not datos:
@@ -206,11 +207,14 @@ class TablaTemperatura(QWidget):
             self.tabla.setSpan(0, 0, 1, self.tabla.columnCount())
             return
 
-        # Cargar cultivo seleccionado
-        cultivo = cargar_cultivo_seleccionado()
+        # Obtener clave interna del cultivo seleccionado
+        _, clave_interna, _ = obtener_cultivo_seleccionado()
 
-        from rangosPlantas import Rangos_ideales
-
+        # Buscar los rangos ideales de esa planta
+        planta = Rangos_ideales["Plantas"].get(clave_interna)
+        if not planta:
+            print(f"[Error] No se encontraron rangos para el cultivo '{clave_interna}'")
+        
         Simbolos_sensor = {
             "Temperatura": "°C",
             "Conductividad Electrica": "mS/cm",
@@ -221,8 +225,7 @@ class TablaTemperatura(QWidget):
             "Nutrientes": "mL"
         }
 
-        def evaluar_estado(valor, sensor, cultivo):
-            planta = Rangos_ideales["Plantas"].get(cultivo)
+        def evaluar_estado(valor, sensor):
             if not planta:
                 return "Desconocido", QColor("#888888")
 
@@ -252,7 +255,7 @@ class TablaTemperatura(QWidget):
                     return "Malo", QColor("#e3342f")
                 elif rangos["bueno"]["min"] <= valor <= rangos["bueno"]["max"]:
                     return "Bueno", QColor("#4dc0b5")
-                
+
             elif sensor == "Nivel del agua":
                 if 31 <= valor < 69:
                     return "Regular", QColor("#ffed4a")
@@ -273,7 +276,7 @@ class TablaTemperatura(QWidget):
             item_fecha = QTableWidgetItem(dato['fecha'].split(' ')[1])
             item_fecha.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            estado_texto, color_estado = evaluar_estado(dato["valor"], self.sensor_actual, cultivo)
+            estado_texto, color_estado = evaluar_estado(dato["valor"], self.sensor_actual)
             item_estado = QTableWidgetItem(estado_texto)
             item_estado.setForeground(color_estado)
             item_estado.setTextAlignment(Qt.AlignmentFlag.AlignRight)
@@ -284,6 +287,7 @@ class TablaTemperatura(QWidget):
 
         for i in range(self.tabla.rowCount()):
             self.tabla.setRowHeight(i, 40)
+
 
 
     def iniciar_timer_actualizacion(self):

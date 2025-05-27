@@ -30,9 +30,6 @@ class HistoryView(QWidget):
         btn_PH.setCheckable(True)
         btn_NA = QPushButton("Nivel del agua")
         btn_NA.setCheckable(True)
-        btn_PHNegativo = QPushButton("pH-")
-        btn_PHPositivo = QPushButton("pH+")
-        btn_Nutrientes = QPushButton("Nutrientes")
 
         sensor_group = QButtonGroup(self)
         sensor_group.setExclusive(True)
@@ -41,32 +38,20 @@ class HistoryView(QWidget):
         sensor_group.addButton(btn_CE)
         sensor_group.addButton(btn_PH)
         sensor_group.addButton(btn_NA)
-        sensor_group.addButton(btn_PHNegativo)
-        sensor_group.addButton(btn_PHPositivo)
-        sensor_group.addButton(btn_Nutrientes)
 
         btn_temp.clicked.connect(lambda: self.cambiar_sensor("Temperatura"))
         btn_CE.clicked.connect(lambda: self.cambiar_sensor("Conductividad Electrica"))
         btn_PH.clicked.connect(lambda: self.cambiar_sensor("Nivel de pH"))
         btn_NA.clicked.connect(lambda: self.cambiar_sensor("Nivel del agua"))
-        btn_PHNegativo.clicked.connect(lambda: self.cambiar_sensor("pH-"))
-        btn_PHPositivo.clicked.connect(lambda: self.cambiar_sensor("pH+"))
-        btn_Nutrientes.clicked.connect(lambda: self.cambiar_sensor("Nutrientes"))
 
         btn_temp.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         btn_CE.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         btn_PH.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         btn_NA.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        btn_PHNegativo.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        btn_PHPositivo.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        btn_Nutrientes.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         navbar.addWidget(btn_temp)
         navbar.addWidget(btn_CE)
         navbar.addWidget(btn_PH)
         navbar.addWidget(btn_NA)
-        navbar.addWidget(btn_PHNegativo)
-        navbar.addWidget(btn_PHPositivo)
-        navbar.addWidget(btn_Nutrientes)
         
         self.setStyleSheet("""
             QPushButton {

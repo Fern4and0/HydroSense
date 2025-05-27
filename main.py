@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFontDatabase, QFont, QPixmap
 from PyQt6.QtCore import Qt
 
+from views.controlView import ControlView
 from views.cultivoView import CultivoView
 from views.home import HomeView
 from views.historyView.history import HistoryView
@@ -71,15 +72,25 @@ class MainWindow(QMainWindow):
         """)
 
         sidebar_layout = QVBoxLayout()
-        sidebar_layout.setContentsMargins(5, 5, 5, 5)
+        sidebar_layout.setContentsMargins(1, 1, 1, 1)
         sidebar_layout.setSpacing(8)
 
-        # Logo en la parte superior
+       # Logo
         logo_label = QLabel()
-        logo_path = os.path.join("assets", "Pendiente")
+        logo_label.setObjectName("logoIcono")
+        logo_path = os.path.join("assets", "logoIcono.png")
         if os.path.exists(logo_path):
-            logo_label.setPixmap(QPixmap(logo_path).scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            pixmap = QPixmap(logo_path).scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            logo_label.setPixmap(pixmap)
             logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_label.setStyleSheet("""
+                QLabel#logoIcono {     
+                    background: transparent; 
+                    border: none;
+                    margin-top: 10px; 
+                    margin-bottom: 20px;
+                }
+            """)
             sidebar_layout.addWidget(logo_label)
 
         # Botones
@@ -88,11 +99,13 @@ class MainWindow(QMainWindow):
 
         self.history_btn = self.create_icon_button("\uf1da", "Historial")
         self.cultivo_btn = self.create_icon_button("\ue5aa","Cultivo")
+        self.control_btn = self.create_icon_button("\uf0ad","Control")
         self.noty_btn = self.create_icon_button("\uf0f3", "Notificaciones")
 
         sidebar_layout.addWidget(self.home_btn)
         sidebar_layout.addWidget(self.history_btn)
         sidebar_layout.addWidget(self.cultivo_btn)
+        sidebar_layout.addWidget(self.control_btn)
         sidebar_layout.addStretch()
         sidebar_layout.addWidget(self.noty_btn)
 
@@ -124,18 +137,21 @@ class MainWindow(QMainWindow):
 
     def setup_pages(self):
         """Agrega las vistas externas"""
-        self.cultivo_page = CultivoView()
         self.home_page = HomeView()
         self.history_page = HistoryView()
+        self.cultivo_page = CultivoView()
+        self.control_page = ControlView()
 
         self.content_stack.addWidget(self.home_page)
         self.content_stack.addWidget(self.history_page)
         self.content_stack.addWidget(self.cultivo_page)
+        self.content_stack.addWidget(self.control_page)
 
     def setup_connections(self):
         self.home_btn.clicked.connect(lambda: self.switch_page(0))
         self.history_btn.clicked.connect(lambda: self.switch_page(1))
         self.cultivo_btn.clicked.connect(lambda: self.switch_page(2))
+        self.control_btn.clicked.connect(lambda: self.switch_page(3))
         self.noty_btn.clicked.connect(lambda: print("Notificaciones"))
 
     def switch_page(self, index):
@@ -143,6 +159,7 @@ class MainWindow(QMainWindow):
         self.home_btn.setChecked(index == 0)
         self.history_btn.setChecked(index == 1)
         self.cultivo_btn.setChecked(index == 2)
+        self.control_btn.setChecked(index == 3)
         self.noty_btn.setChecked(False)
 
         if index == 1:

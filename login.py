@@ -3,8 +3,10 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QMessageBox
 )
-from PyQt6.QtGui import QPixmap, QRegularExpressionValidator
-from PyQt6.QtCore import Qt, QRegularExpression
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt
+from firebase_admin import db
+from firebase_config import *
 
 class VentanaLogin(QWidget):
     def __init__(self, on_login_success=None):
@@ -14,13 +16,14 @@ class VentanaLogin(QWidget):
         self.setGeometry(100, 100, 1000, 700)
         self.setStyleSheet("background-color: #282C34;")
 
-        # Layout principal
         self.layout = QHBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
         self.crear_seccion_izquierda()
         self.crear_seccion_derecha()
+
+        self.verificar_modo()
 
     def crear_seccion_izquierda(self):
         left_container = QWidget()
@@ -40,30 +43,30 @@ class VentanaLogin(QWidget):
         self.layout.addWidget(left_container, 1)
 
     def crear_seccion_derecha(self):
-        right_container = QWidget()
-        right_layout = QVBoxLayout(right_container)
-        right_layout.setContentsMargins(60, 0, 60, 0)
-        right_layout.setSpacing(0)
+        self.right_container = QWidget()
+        self.right_layout = QVBoxLayout(self.right_container)
+        self.right_layout.setContentsMargins(60, 0, 60, 0)
+        self.right_layout.setSpacing(0)
 
-        right_layout.addStretch()
+        self.right_layout.addStretch()
 
-        form_container = QWidget()
-        form_layout = QVBoxLayout(form_container)
-        form_layout.setContentsMargins(0, 0, 0, 0)
-        form_layout.setSpacing(25)
+        self.form_container = QWidget()
+        self.form_layout = QVBoxLayout(self.form_container)
+        self.form_layout.setContentsMargins(0, 0, 0, 0)
+        self.form_layout.setSpacing(25)
 
-        title = QLabel("¡Bienvenido!")
-        title.setStyleSheet("""
+        self.title = QLabel("")
+        self.title.setStyleSheet("""
             font-size: 24px;
             font-weight: bold;
             color: #fff;
             margin-bottom: 30px;
         """)
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        form_layout.addWidget(title)
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.form_layout.addWidget(self.title)
 
         self.entry_usuario = QLineEdit()
-        self.entry_usuario.setPlaceholderText("Ingresa tu correo")
+        self.entry_usuario.setPlaceholderText("Ingresa tu usuario")
         self.entry_usuario.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #7b7b7b;
@@ -77,30 +80,16 @@ class VentanaLogin(QWidget):
                 outline: none;
             }
         """)
-        form_layout.addWidget(self.entry_usuario)
-
-        self.email_error_msj = QLabel("Por favor ingresa un correo electrónico válido")
-        self.email_error_msj.setStyleSheet("""
-            font-size: 12px;
-            font-weight: bold;
-            color: #af0000;
-        """)
-        self.email_error_msj.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.email_error_msj.hide()
-        form_layout.addWidget(self.email_error_msj)
-
-        email_regex = QRegularExpression(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        email_validator = QRegularExpressionValidator(email_regex, self)
-        self.entry_usuario.setValidator(email_validator)
+        self.form_layout.addWidget(self.entry_usuario)
 
         self.entry_contrasena = QLineEdit()
         self.entry_contrasena.setPlaceholderText("Ingresa tu contraseña")
         self.entry_contrasena.setEchoMode(QLineEdit.EchoMode.Password)
         self.entry_contrasena.setStyleSheet(self.entry_usuario.styleSheet())
-        form_layout.addWidget(self.entry_contrasena)
+        self.form_layout.addWidget(self.entry_contrasena)
 
-        self.boton_login = QPushButton("Iniciar sesión")
-        self.boton_login.setStyleSheet("""
+        self.boton_accion = QPushButton()
+        self.boton_accion.setStyleSheet("""
             QPushButton {
                 background-color: #07ad90;
                 color: white;
@@ -116,10 +105,9 @@ class VentanaLogin(QWidget):
                 background-color: #079c82;
             }
         """)
-        self.boton_login.clicked.connect(self.verificar_login)
-        form_layout.addWidget(self.boton_login)
+        self.form_layout.addWidget(self.boton_accion)
 
-        self.login_error_msj = QLabel("Tus credenciales son incorrectas, por favor inténtalo de nuevo")
+        self.login_error_msj = QLabel("")
         self.login_error_msj.setStyleSheet("""
             font-size: 12px;
             font-weight: bold;
@@ -127,46 +115,77 @@ class VentanaLogin(QWidget):
         """)
         self.login_error_msj.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.login_error_msj.hide()
-        form_layout.addWidget(self.login_error_msj)
+        self.form_layout.addWidget(self.login_error_msj)
 
-        links_container = QWidget()
-        links_layout = QHBoxLayout(links_container)
-        links_layout.setContentsMargins(0, 20, 0, 0)
-        links_layout.setSpacing(10)
+        self.right_layout.addWidget(self.form_container)
+        self.right_layout.addStretch()
 
-        self.link_olvide = QLabel("<a href='#' style='color: #6c757d; text-decoration: none;'></a>")
-        self.link_olvide.setOpenExternalLinks(True)
+        self.layout.addWidget(self.right_container, 1)
 
-        self.link_signup = QLabel("<a href='#' style='color: #6c757d; text-decoration: none;'></a>")
-        self.link_signup.setOpenExternalLinks(True)
+    def verificar_modo(self):
+        try:
+            ref = db.reference("Usuarios")
+            usuarios = ref.get()
 
-        links_layout.addStretch()
-        links_layout.addWidget(self.link_olvide)
-        links_layout.addWidget(QLabel("•"))
-        links_layout.addWidget(self.link_signup)
-        links_layout.addStretch()
+            if usuarios:
+                # Modo login
+                self.title.setText("¡Bienvenido!")
+                self.boton_accion.setText("Iniciar sesión")
+                self.boton_accion.clicked.connect(self.verificar_login)
+            else:
+                # Modo registro
+                self.title.setText("Registro de administrador")
+                self.boton_accion.setText("Registrarse")
+                self.boton_accion.clicked.connect(self.registrar_usuario)
 
-        form_layout.addWidget(links_container)
-        right_layout.addWidget(form_container)
-
-        right_layout.addStretch()
-
-        self.layout.addWidget(right_container, 1)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo verificar usuarios: {e}")
 
     def verificar_login(self):
-        usuario_correcto = "admin@example.com"
-        contrasena_correcta = "1234"
+        usuario_input = self.entry_usuario.text()
+        contrasena_input = self.entry_contrasena.text()
 
-        if not self.entry_usuario.hasAcceptableInput():
-            self.email_error_msj.show()
+        try:
+            ref = db.reference("Usuarios")
+            usuarios = ref.get()
+
+            if usuarios:
+                for _, datos in usuarios.items():
+                    nombre = str(datos.get("Nombre", ""))
+                    contrasena = str(datos.get("Contraseña", ""))
+
+                    if usuario_input == nombre and contrasena_input == contrasena:
+                        self.login_error_msj.hide()
+                        if self.on_login_success:
+                            self.on_login_success()
+                        self.close()
+                        return
+
+            self.login_error_msj.setText("Usuario o contraseña incorrectos.")
+            self.login_error_msj.show()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo verificar el login: {e}")
+
+    def registrar_usuario(self):
+        usuario = self.entry_usuario.text().strip()
+        contrasena = self.entry_contrasena.text().strip()
+
+        if not usuario or not contrasena:
+            self.login_error_msj.setText("Completa todos los campos.")
+            self.login_error_msj.show()
             return
 
-        if (self.entry_usuario.text() == usuario_correcto and 
-            self.entry_contrasena.text() == contrasena_correcta):
-            self.login_error_msj.hide()
+        try:
+            ref = db.reference("Usuarios")
+            ref.push({
+                "Nombre": usuario,
+                "Contraseña": contrasena
+            })
+            QMessageBox.information(self, "Registro exitoso", "Usuario registrado correctamente.")
+            self.close()
             if self.on_login_success:
                 self.on_login_success()
-            self.close()
-        else:
-            self.login_error_msj.setText("Tus credenciales son incorrectas, por favor inténtalo de nuevo")
-            self.login_error_msj.show()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo registrar el usuario: {e}")
